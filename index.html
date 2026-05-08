@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FateTable - Mesa VTT HTML</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark">✦</span>
+          <div>
+            <strong>FateTable</strong>
+            <small>Mesa tabletop HTML</small>
+          </div>
+        </div>
+        <label class="campaign-label">
+          Campanha
+          <input id="campaignName" value="Crônicas da Mesa" maxlength="60" />
+        </label>
+        <label class="campaign-label scene-label">
+          Cena
+          <input id="sceneName" value="Cena Inicial" maxlength="60" />
+        </label>
+        <div class="top-actions">
+          <button id="newMapBtn" title="Limpa o mapa/cena atual">Novo mapa</button>
+          <button id="newSceneBtn" title="Cria uma cena nova separada">Nova cena</button>
+          <button id="saveBtn" title="Salvar no navegador">Salvar</button>
+          <button id="loadBtn" title="Carregar do navegador">Carregar</button>
+          <button id="exportBtn" title="Exportar campanha JSON">Exportar JSON</button>
+          <label class="import-label" title="Importar campanha JSON">
+            Importar JSON
+            <input id="importFile" type="file" accept="application/json" hidden />
+          </label>
+          <button id="roleBtn" title="Alternar Mestre/Jogador">Modo: Mestre</button>
+          <button data-open-tab="plugins" title="Abrir plugins">Plugins</button>
+          <button data-open-tab="library" title="Abrir biblioteca">Biblioteca</button>
+          <button data-open-tab="settings" title="Abrir configurações">Configurações</button>
+          <span id="connectionLabel" class="status-pill">Offline preparado</span>
+          <span id="zoomLabel" class="status-pill">100%</span>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <aside class="toolrail" aria-label="Ferramentas da mesa">
+          <button class="tool active" data-tool="select" title="V - Selecionar/mover">☝<span>Selecionar</span></button>
+          <button class="tool" data-tool="pan" title="H - Mover câmera">✋<span>Pan</span></button>
+          <button class="tool" data-tool="measure" title="M - Medir distância">📏<span>Medir</span></button>
+          <button class="tool" data-tool="token" title="T - Adicionar token">●<span>Token</span></button>
+          <button class="tool" data-tool="map" title="Adicionar mapa pela biblioteca">▧<span>Mapa</span></button>
+          <button class="tool" data-tool="draw" title="D - Desenho livre">✎<span>Desenho</span></button>
+          <button class="tool" data-tool="text" title="Texto/anotação">Tt<span>Texto</span></button>
+          <button class="tool" data-tool="template" title="Template de área circular">◌<span>Área</span></button>
+          <button class="tool" data-tool="fog" title="F - Revelar névoa manual">☁<span>Fog</span></button>
+          <button class="tool" data-tool="light" title="L - Criar luz">✺<span>Luz</span></button>
+          <button class="tool" data-tool="wall" title="Parede que bloqueia visão futuramente">╱<span>Parede</span></button>
+          <button class="tool" data-tool="door" title="Porta abrível/trancável">▯<span>Porta</span></button>
+          <button class="tool" data-tool="ping" title="P - Ping no mapa">⌖<span>Ping</span></button>
+          <button class="tool" data-tool="erase" title="Apagar objeto selecionado">⌫<span>Apagar</span></button>
+        </aside>
+
+        <section class="tabletop-panel">
+          <canvas id="tableCanvas"></canvas>
+          <div id="measureOverlay" class="floating-readout hidden"></div>
+          <div class="canvas-hud">
+            <span id="mouseCoords">0, 0</span>
+            <span id="toolLabel">Ferramenta: selecionar</span>
+            <span id="layerLabel">Camada: tokens</span>
+            <span id="scaleLabel">1 célula = 1,5m</span>
+            <span id="saveState">Não salvo</span>
+          </div>
+        </section>
+
+        <aside class="sidebar">
+          <nav class="tabs" aria-label="Abas laterais">
+            <button class="tab active" data-tab="chat">Chat</button>
+            <button class="tab" data-tab="combat">Combate</button>
+            <button class="tab" data-tab="sheet">Ficha</button>
+            <button class="tab" data-tab="library">Biblioteca</button>
+            <button class="tab" data-tab="macros">Macros</button>
+            <button class="tab" data-tab="plugins">Plugins</button>
+            <button class="tab" data-tab="settings">Config</button>
+            <button class="tab" data-tab="journal">Diário</button>
+          </nav>
+
+          <section id="chatTab" class="tab-panel active">
+            <div id="chatLog" class="chat-log"></div>
+            <form id="chatForm" class="chat-form">
+              <input id="chatInput" autocomplete="off" placeholder="Mensagem ou /r 1d20+5" />
+              <button>Enviar</button>
+            </form>
+          </section>
+
+          <section id="combatTab" class="tab-panel">
+            <div class="panel-actions">
+              <button id="addCombatBtn">Adicionar selecionado</button>
+              <button id="rollInitBtn">Rolar iniciativa</button>
+              <button id="nextTurnBtn">Próximo turno</button>
+            </div>
+            <div class="round-card">Rodada <strong id="roundLabel">1</strong></div>
+            <div id="combatList" class="combat-list"></div>
+          </section>
+
+          <section id="sheetTab" class="tab-panel">
+            <div class="section-title">Token selecionado</div>
+            <form id="tokenForm" class="token-form">
+              <label>Nome<input id="tokenName" placeholder="Selecione um token" /></label>
+              <div class="form-grid">
+                <label>HP<input id="tokenHp" type="number" min="0" /></label>
+                <label>HP Máx<input id="tokenMaxHp" type="number" min="1" /></label>
+                <label>Defesa<input id="tokenArmor" type="number" min="0" /></label>
+                <label>Movimento<input id="tokenSpeed" type="number" min="0" /></label>
+              </div>
+              <label>Cor<input id="tokenColor" type="color" /></label>
+              <label>Notas<textarea id="tokenNotes" rows="4"></textarea></label>
+              <button type="submit">Atualizar ficha</button>
+              <button id="deleteTokenBtn" type="button" class="danger">Deletar token</button>
+            </form>
+          </section>
+
+          <section id="libraryTab" class="tab-panel">
+            <div class="section-title">Biblioteca local</div>
+            <label class="file-drop">Carregar mapa/imagem
+              <input id="mapImageInput" type="file" accept="image/*" />
+            </label>
+            <div class="settings-card">
+              <label>Tamanho do grid<input id="gridSizeInput" type="number" min="24" max="180" /></label>
+              <label>Cor do grid<input id="gridColorInput" type="color" /></label>
+              <label>Opacidade do grid<input id="gridOpacityInput" type="range" min="0" max="1" step="0.05" /></label>
+              <label><input id="snapInput" type="checkbox" /> Snap to grid</label>
+            </div>
+            <div id="assetList" class="asset-list"></div>
+          </section>
+
+          <section id="macrosTab" class="tab-panel">
+            <div class="section-title">Macros e hotbar</div>
+            <form id="macroForm" class="token-form">
+              <label>Nome<input id="macroName" placeholder="Ataque Espada" /></label>
+              <label>Ícone<input id="macroIcon" maxlength="2" value="⚔️" /></label>
+              <label>Comando<textarea id="macroCommand" rows="4" placeholder="/r 1d20+5&#10;/damage 1d8+3"></textarea></label>
+              <button type="submit">Salvar macro</button>
+            </form>
+            <div id="macroList" class="asset-list"></div>
+          </section>
+
+          <section id="pluginsTab" class="tab-panel">
+            <div class="section-title">Plugins internos</div>
+            <p class="muted">Ative/desative automações seguras via API interna <code>TabletopAPI</code>.</p>
+            <div id="pluginList" class="plugin-list"></div>
+          </section>
+
+          <section id="settingsTab" class="tab-panel">
+            <div class="section-title">Configurações da mesa</div>
+            <div class="settings-card">
+              <label>Camada atual
+                <select id="layerSelect">
+                  <option>tokens</option><option>map</option><option>drawings</option><option>templates</option><option>walls</option><option>lights</option><option>fog</option>
+                </select>
+              </label>
+              <label>Regra diagonal
+                <select id="diagonalRuleInput"><option>5-10-5</option><option>5-5-5</option><option>euclidiana</option></select>
+              </label>
+              <label><input id="showNamesInput" type="checkbox" checked /> Mostrar nomes dos tokens</label>
+              <label><input id="showBarsInput" type="checkbox" checked /> Mostrar barras dos tokens</label>
+              <button id="centerSceneBtn" type="button">Centralizar cena</button>
+            </div>
+          </section>
+
+          <section id="journalTab" class="tab-panel">
+            <div class="section-title">Diário / Notas</div>
+            <form id="journalForm" class="token-form">
+              <label>Título<input id="journalTitle" placeholder="Cidade de Volkgnar" /></label>
+              <label>Visibilidade<select id="journalVisibility"><option value="gm">Mestre</option><option value="players">Jogadores</option></select></label>
+              <label>Conteúdo<textarea id="journalContent" rows="5" placeholder="Notas, handouts, missões, lore..."></textarea></label>
+              <button type="submit">Salvar nota</button>
+            </form>
+            <div id="journalList" class="asset-list"></div>
+          </section>
+        </aside>
+      </main>
+      <footer id="hotbar" class="hotbar" aria-label="Hotbar de macros"></footer>
+      <div id="contextMenu" class="context-menu hidden"></div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
